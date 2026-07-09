@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width,initial-scale=1.0" name="viewport">
+<title>Consulta Aulas — Grade APC CFP2/2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;900&amp;display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{
+  --page:#f9f9f7; --surface-1:#fcfcfb;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+  --gridline:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+  --navy:#1c2b4a; --seq:#2a78d6;
+  --epf:#3a9475; --dpf:#5b8ec4; --ppf:#d4a843; --pcf:#c96b5a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Source Sans 3','Source Sans Pro',system-ui,-apple-system,sans-serif;background:var(--page);color:var(--text-primary);font-size:13px;line-height:1.5}
+.header{background:var(--navy);color:#fff;padding:20px 24px}
+.header-title{font-size:22px;font-weight:900;letter-spacing:.3px}
+.header-course{font-size:13px;font-weight:700;color:rgba(255,255,255,.9);margin-top:4px;letter-spacing:.2px}
+.header-sub{font-size:12px;color:rgba(255,255,255,.75);margin-top:4px}
+.main{max-width:980px;margin:0 auto;padding:20px 20px 48px}
+
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.card-titulo{font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+
+.filtros{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.filtro-campo{display:flex;flex-direction:column;gap:5px}
+.filtro-campo label{font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px}
+.filtro-campo input,.filtro-campo select{font-size:13px;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;background:var(--page);color:var(--text-primary);font-weight:600;font-family:inherit}
+.btn-buscar{padding:9px 22px;font-size:13px;font-weight:900;border:none;border-radius:7px;background:var(--navy);color:#fff;cursor:pointer;letter-spacing:.3px}
+.btn-buscar:hover{opacity:.9}
+.filtro-hint{font-size:11px;color:var(--text-muted);margin-top:10px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat{background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:14px 12px;text-align:center}
+.stat-val{font-size:26px;font-weight:700;color:var(--navy);line-height:1;font-variant-numeric:proportional-nums}
+.stat-lab{font-size:9px;color:var(--text-muted);margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:var(--page);padding:7px 10px;text-align:left;font-weight:700;font-size:10px;color:var(--text-muted);border-bottom:1.5px solid var(--gridline);white-space:nowrap;text-transform:uppercase;letter-spacing:.4px}
+td{padding:7px 10px;border-bottom:1px solid var(--gridline);vertical-align:middle}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--navy)}
+tr:hover td{background:var(--page)}
+.bdg{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap;color:#fff}
+.bdg.epf{background:var(--epf)}.bdg.dpf{background:var(--dpf)}.bdg.ppf{background:var(--ppf)}.bdg.pcf{background:var(--pcf)}
+
+.heatmap-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.view-toggle{display:flex;gap:6px}
+.view-toggle button{font-size:11px;font-weight:700;padding:6px 12px;border:1.5px solid var(--border);border-radius:7px;background:var(--page);color:var(--text-secondary);cursor:pointer;font-family:inherit}
+.view-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.legenda-seq{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted)}
+.legenda-seq .sw{width:13px;height:13px;border-radius:3px;display:inline-block;border:1px solid var(--border)}
+
+.tl-scroll{overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
+.tl-canvas{position:relative;height:216px}
+.tl-weekend{position:absolute;top:18px;bottom:38px;background:var(--page)}
+.tl-divider{position:absolute;top:18px;bottom:38px;width:1px;background:var(--gridline)}
+.tl-month-label{position:absolute;top:0;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.tl-baseline{position:absolute;left:0;right:0;bottom:38px;height:1px;background:var(--baseline)}
+.tl-bar-seg{position:absolute;cursor:default}
+.tl-bar-seg.has-data{cursor:pointer}
+.tl-bar-seg.empty{background:var(--gridline)}
+.tl-bar-seg.epf{background:var(--epf)}
+.tl-bar-seg.dpf{background:var(--dpf)}
+.tl-bar-seg.pcf{background:var(--pcf)}
+.tl-bar-seg.ppf{background:var(--ppf)}
+.tl-day-label{position:absolute;bottom:20px;font-size:9px;font-weight:600;color:var(--text-muted);text-align:center}
+
+.tooltip{position:fixed;z-index:200;background:var(--navy);color:#fff;border-radius:8px;padding:10px 12px;font-size:11px;line-height:1.5;max-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.3);pointer-events:none;opacity:0;transition:opacity .1s}
+.tooltip.show{opacity:1}
+.tooltip-date{font-weight:900;margin-bottom:6px;font-size:12px}
+.tooltip-row{padding:3px 0;border-top:1px solid rgba(255,255,255,.15)}
+.tooltip-row:first-of-type{border-top:none}
+.tooltip-cod{font-weight:700}
+.tooltip-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+
+.empty-state{text-align:center;padding:30px;color:var(--text-muted);font-size:12px}
+.actions-bar{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:4px}
+.action-btn{padding:9px 18px;font-size:12px;font-weight:900;letter-spacing:.25px;border:1.5px solid var(--navy);border-radius:8px;background:var(--surface-1);color:var(--navy);cursor:pointer;font-family:inherit}
+.action-btn:hover{background:var(--page)}
+.action-btn-primary{background:var(--navy);color:#fff}
+.action-btn-primary:hover{opacity:.9;background:var(--navy)}
+.action-btn.copiado{background:#2e7560;border-color:#2e7560;color:#fff}
+.action-btn.epf{border-color:var(--epf);background:var(--epf);color:#fff}
+.action-btn.epf:hover{opacity:.9;background:var(--epf)}
+.action-btn.dpf{border-color:var(--dpf);background:var(--dpf);color:#fff}
+.action-btn.dpf:hover{opacity:.9;background:var(--dpf)}
+
+.footer{text-align:center;padding:16px;font-size:10px;color:var(--text-muted)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">Consulta Aulas</div>
+  <div class="header-course">APC - Atividade Policial em Campo</div>
+  <div class="header-sub">(Obs: após o professor lançar o período da sua missão, excluindo o deslocamento, serão apresentadas as aulas que ocorrerão no referido período)</div>
+</div>
+
+<div class="main">
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="card-titulo" style="margin-bottom:0">Período de disponibilidade</div>
+      
+    </div>
+    <div class="filtros">
+      <div class="filtro-campo">
+        <label for="f-inicio">Data início</label>
+        <input type="date" id="f-inicio">
+      </div>
+      <div class="filtro-campo">
+        <label for="f-fim">Data fim</label>
+        <input type="date" id="f-fim">
+      </div>
+      <div class="filtro-campo">
+        <label for="f-cargo">Cargo</label>
+        <select id="f-cargo">
+          <option value="all">Todos</option>
+          <option value="APF">APF</option>
+        </select>
+      </div>
+      <button type="button" class="btn-buscar" id="btn-buscar">Buscar</button>
+    </div>
+    <div class="filtro-hint">Mostra somente aulas a partir da data de hoje — períodos já passados não são exibidos.</div>
+  </div>
+
+  <div id="resultados" style="display:none">
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="st-total">0</div><div class="stat-lab">Aulas no período</div></div>
+      <div class="stat"><div class="stat-val" id="st-dias">0</div><div class="stat-lab">Dias com aula</div></div>
+      <div class="stat"><div class="stat-val" id="st-codigos">0</div><div class="stat-lab">Códigos distintos</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-titulo">Códigos e descrições das aulas no período</div>
+      <div class="tbl-wrap" style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Cargo</th><th>Código</th><th>Descrição</th><th>Ponto Focal</th><th>Turmas</th><th style="text-align:right">Qtd. sessões</th></tr></thead>
+          <tbody id="tbl-resumo"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="heatmap-head">
+        <div class="card-titulo" style="margin-bottom:0">Calendário do período</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="legenda-seq">
+            <span class="sw" style="background:var(--epf)"></span><span>Escrivão</span>
+            <span class="sw" style="background:var(--dpf)"></span><span>Delegado</span>
+            <span class="sw" style="background:var(--pcf)"></span><span>Perito</span>
+            <span class="sw" style="background:var(--ppf)"></span><span>Papiloscopista</span>
+          </div>
+          <div class="view-toggle">
+            <button type="button" id="btn-view-cal" class="active">Calendário</button>
+            <button type="button" id="btn-view-tbl">Tabela</button>
+          </div>
+        </div>
+      </div>
+      <div class="tl-scroll"><div id="months-container" class="tl-canvas"></div></div>
+      <div id="tabela-dias-container" style="display:none;overflow-x:auto">
+        <table>
+          <thead><tr><th>Data</th><th>Dia</th><th style="text-align:right">Qtd. aulas</th></tr></thead>
+          <tbody id="tbl-dias"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="actions-bar">
+      <button type="button" class="action-btn" id="btn-copiar">Copiar</button>
+      <button type="button" class="action-btn" id="btn-compartilhar">Compartilhar</button>
+      <button type="button" class="action-btn action-btn-primary" id="btn-baixar">Download CSV</button>
+      <button type="button" class="action-btn action-btn-primary" id="btn-baixar-pdf">Download PDF</button>
+    </div>
+  </div>
+
+  <div id="vazio" class="empty-state" style="display:none">Nenhuma aula encontrada no período e cargo selecionados.</div>
+
+  <div class="footer">Grade APC CFP2/2026 · dados extraídos do calendário oficial</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* BEGIN_DADOS_AULAS - gerado automaticamente por generate-professor-data.py, não editar manualmente */
+const DADOS_AULAS = [{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"A","data":"07/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"B","data":"07/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"B","data":"07/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"C","data":"07/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"C","data":"07/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"D","data":"07/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"D","data":"07/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"E","data":"07/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"A","data":"07/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"B","data":"07/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"E","data":"08/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"F","data":"08/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"F","data":"08/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"G","data":"08/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"G","data":"08/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"H","data":"08/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"H","data":"08/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"I","data":"08/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"C","data":"08/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"D","data":"08/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"I","data":"09/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"J","data":"09/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"J","data":"09/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"K","data":"09/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"K","data":"09/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"L","data":"09/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"L","data":"09/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"M","data":"09/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"E","data":"09/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"F","data":"09/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"M","data":"10/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"N","data":"10/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"N","data":"10/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"O","data":"10/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"O","data":"10/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"P","data":"10/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"P","data":"10/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"Q","data":"10/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"G","data":"10/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"H","data":"10/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"Q","data":"11/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"R","data":"11/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"R","data":"11/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"S","data":"11/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.1","descricao":"Eleitoral 1","turma":"S","data":"11/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.1","descricao":"Fonte Humana","turma":"A","data":"11/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"A","data":"14/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"B","data":"14/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"C","data":"14/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"B","data":"14/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"A","data":"14/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"D","data":"14/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"I","data":"14/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"J","data":"14/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"C","data":"15/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"E","data":"15/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"F","data":"15/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"D","data":"15/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"G","data":"15/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"H","data":"15/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"K","data":"15/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"L","data":"15/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"E","data":"16/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"I","data":"16/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"J","data":"16/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"F","data":"16/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"K","data":"16/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"L","data":"16/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"M","data":"16/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"N","data":"16/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"G","data":"17/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"M","data":"17/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"N","data":"17/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"H","data":"17/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"O","data":"17/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"P","data":"17/09/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"O","data":"17/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"P","data":"17/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"I","data":"18/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"Q","data":"18/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"R","data":"18/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"J","data":"18/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.2","descricao":"Planejamento de Vigilância","turma":"S","data":"18/09/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"K","data":"21/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"L","data":"21/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"Q","data":"21/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"R","data":"21/09/2026","horaInicio":"20:50","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"M","data":"22/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"A","data":"22/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.1","descricao":"Plantão","turma":"S","data":"22/09/2026","horaInicio":"19:00","horaFim":"20:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"N","data":"23/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"B","data":"23/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"O","data":"24/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"C","data":"24/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"P","data":"25/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"Q","data":"25/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"D","data":"26/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"E","data":"26/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"F","data":"27/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"G","data":"27/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"R","data":"28/09/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.2","descricao":"Eleitoral 2","turma":"S","data":"28/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"A","data":"28/09/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"A","data":"29/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"B","data":"29/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"H","data":"29/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"B","data":"29/09/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"C","data":"30/09/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"D","data":"30/09/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"I","data":"30/09/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"C","data":"30/09/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"E","data":"01/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"F","data":"01/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"J","data":"01/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"D","data":"01/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"G","data":"02/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"H","data":"02/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"I","data":"02/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"J","data":"02/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"K","data":"03/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"L","data":"03/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"M","data":"04/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"N","data":"04/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"K","data":"05/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"L","data":"05/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"M","data":"05/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"N","data":"05/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"E","data":"05/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"O","data":"06/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"P","data":"06/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"O","data":"06/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"F","data":"06/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"Q","data":"07/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"R","data":"07/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"P","data":"07/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"G","data":"07/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.3","descricao":"Previdenciário","turma":"S","data":"08/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"M","data":"08/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"Q","data":"08/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"N","data":"08/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"H","data":"08/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"A","data":"09/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"O","data":"09/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"B","data":"09/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"P","data":"09/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"R","data":"10/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.3","descricao":"Aeroporto","turma":"S","data":"10/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"C","data":"12/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"Q","data":"12/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"D","data":"12/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"R","data":"12/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"I","data":"12/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"E","data":"13/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"S","data":"13/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"F","data":"13/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"J","data":"13/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"G","data":"14/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"H","data":"14/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"K","data":"14/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"I","data":"15/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"J","data":"15/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"L","data":"15/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"K","data":"16/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.4","descricao":"IPED","turma":"L","data":"16/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"A","data":"19/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"B","data":"19/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"C","data":"19/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"B","data":"19/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"A","data":"19/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"D","data":"19/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"M","data":"19/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"C","data":"20/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"E","data":"20/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"F","data":"20/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"D","data":"20/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"G","data":"20/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"H","data":"20/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"N","data":"20/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"E","data":"21/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"I","data":"21/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"J","data":"21/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"F","data":"21/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"K","data":"21/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"L","data":"21/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"O","data":"21/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"G","data":"22/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"M","data":"22/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"N","data":"22/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"H","data":"22/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"O","data":"22/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"P","data":"22/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"P","data":"22/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"I","data":"23/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"Q","data":"23/10/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"R","data":"23/10/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"J","data":"23/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.5","descricao":"Planejamento de Operação","turma":"S","data":"23/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"K","data":"26/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"L","data":"26/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"Q","data":"26/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"M","data":"27/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"N","data":"27/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"R","data":"27/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"O","data":"28/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"P","data":"28/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M1.2","descricao":"Sobreaviso","turma":"S","data":"28/10/2026","horaInicio":"19:00","horaFim":"22:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"Q","data":"29/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"R","data":"29/10/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.4","descricao":"Damaz","turma":"S","data":"30/10/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"A","data":"30/10/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"B","data":"30/10/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"C","data":"02/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"D","data":"02/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"E","data":"02/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"F","data":"02/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"G","data":"03/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"H","data":"03/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"I","data":"03/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"J","data":"03/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"K","data":"04/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"L","data":"04/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"M","data":"04/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"N","data":"04/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"O","data":"05/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"P","data":"05/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"Q","data":"05/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"R","data":"05/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.5","descricao":"DCiber","turma":"S","data":"06/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"L","data":"06/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"A","data":"06/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"M","data":"06/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"B","data":"09/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"N","data":"09/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"C","data":"09/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"O","data":"09/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"D","data":"10/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"P","data":"10/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"E","data":"10/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"Q","data":"10/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"F","data":"11/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"R","data":"11/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"G","data":"11/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"S","data":"11/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"H","data":"12/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"I","data":"12/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"J","data":"13/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.6","descricao":"Desencadeamento","turma":"K","data":"13/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"A","data":"16/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"B","data":"16/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"C","data":"16/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"D","data":"16/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"E","data":"17/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"F","data":"17/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"G","data":"17/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"H","data":"17/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"I","data":"18/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"J","data":"18/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"K","data":"18/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"L","data":"18/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"M","data":"19/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"N","data":"19/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"O","data":"19/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"P","data":"19/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"Q","data":"20/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"K","data":"20/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"R","data":"20/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.6","descricao":"DCiber","turma":"S","data":"20/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"L","data":"20/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"A","data":"23/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"M","data":"23/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"B","data":"23/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"N","data":"23/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"C","data":"24/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"O","data":"24/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"D","data":"24/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"P","data":"24/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"E","data":"25/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"Q","data":"25/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"F","data":"25/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"R","data":"25/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"G","data":"26/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"S","data":"26/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"H","data":"26/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"I","data":"27/11/2026","horaInicio":"08:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.7","descricao":"Análise de Material Apreendido","turma":"J","data":"27/11/2026","horaInicio":"13:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"A","data":"30/11/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"B","data":"30/11/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"C","data":"30/11/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"D","data":"30/11/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"E","data":"01/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"F","data":"01/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"G","data":"01/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"H","data":"01/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"I","data":"02/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"J","data":"02/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"K","data":"02/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"L","data":"02/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"M","data":"03/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"N","data":"03/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"O","data":"03/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"P","data":"03/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"Q","data":"04/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"R","data":"04/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M2.7","descricao":"DCiber","turma":"S","data":"04/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"A","data":"04/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"B","data":"07/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"C","data":"07/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"D","data":"07/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"E","data":"07/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"F","data":"08/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"G","data":"08/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"H","data":"08/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"I","data":"08/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"J","data":"09/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"K","data":"09/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"L","data":"09/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"M","data":"09/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"N","data":"10/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"O","data":"10/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"P","data":"10/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"Q","data":"10/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"R","data":"11/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.8","descricao":"Audiência de Instrução","turma":"S","data":"11/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"A","data":"11/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"B","data":"11/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"C","data":"14/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"D","data":"14/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"E","data":"14/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"F","data":"14/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"G","data":"15/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"H","data":"15/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"I","data":"15/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"J","data":"15/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"K","data":"16/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"L","data":"16/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"M","data":"16/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"N","data":"16/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"O","data":"17/12/2026","horaInicio":"08:00","horaFim":"09:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"P","data":"17/12/2026","horaInicio":"10:00","horaFim":"11:40"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"Q","data":"17/12/2026","horaInicio":"13:50","horaFim":"15:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"R","data":"17/12/2026","horaInicio":"15:50","horaFim":"17:30"},{"cargo":"APF","codigo":"M3.9","descricao":"Revisão","turma":"S","data":"18/12/2026","horaInicio":"08:00","horaFim":"09:40"}];
+/* END_DADOS_AULAS */
+
+const DOW = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MESES_NOME = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function parseDateBR(str){
+  const [d,m,y] = str.split('/').map(Number);
+  return new Date(y, m-1, d);
+}
+function toISO(date){
+  return date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
+}
+function todayAtMidnight(){
+  const t = new Date();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+
+function initDefaults(){
+  const hoje = todayAtMidnight();
+  const em30 = new Date(hoje); em30.setDate(em30.getDate()+30);
+  document.getElementById('f-inicio').value = toISO(hoje);
+  document.getElementById('f-inicio').min = toISO(hoje);
+  document.getElementById('f-fim').value = toISO(em30);
+  document.getElementById('f-fim').min = toISO(hoje);
+}
+
+function buscar(){
+  const hoje = todayAtMidnight();
+  let inicio = document.getElementById('f-inicio').value ? new Date(document.getElementById('f-inicio').value + 'T00:00:00') : hoje;
+  let fim = document.getElementById('f-fim').value ? new Date(document.getElementById('f-fim').value + 'T00:00:00') : hoje;
+  if(inicio < hoje) inicio = hoje;
+  const cargo = document.getElementById('f-cargo').value;
+
+  const linhas = DADOS_AULAS
+    .map(r => ({...r, _date: parseDateBR(r.data)}))
+    .filter(r => r._date >= inicio && r._date <= fim && r._date >= hoje)
+    .filter(r => cargo === 'all' || r.cargo === cargo);
+
+  renderResultados(linhas, inicio, fim);
+}
+
+let ultimoResultado = null;
+
+function renderResultados(linhas, inicio, fim){
+  const resultados = document.getElementById('resultados');
+  const vazio = document.getElementById('vazio');
+  if(linhas.length === 0){
+    resultados.style.display = 'none';
+    vazio.style.display = 'block';
+    ultimoResultado = null;
+    return;
+  }
+  vazio.style.display = 'none';
+  resultados.style.display = 'block';
+
+  document.getElementById('st-total').textContent = linhas.length;
+
+  const porDia = new Map();
+  linhas.forEach(r => {
+    const iso = toISO(r._date);
+    if(!porDia.has(iso)) porDia.set(iso, []);
+    porDia.get(iso).push(r);
+  });
+  document.getElementById('st-dias').textContent = porDia.size;
+
+  const grupos = new Map();
+  linhas.forEach(r => {
+    const key = r.cargo + '|' + r.codigo + '|' + r.descricao;
+    if(!grupos.has(key)) grupos.set(key, {cargo:r.cargo, codigo:r.codigo, descricao:r.descricao, turmas:new Set(), count:0});
+    const g = grupos.get(key);
+    g.turmas.add(r.turma);
+    g.count++;
+  });
+  document.getElementById('st-codigos').textContent = new Set(linhas.map(r=>r.cargo+'|'+r.codigo)).size;
+
+  renderTabelaResumo(grupos);
+  renderCalendario(porDia, inicio, fim);
+  renderTabelaDias(porDia);
+
+  ultimoResultado = {
+    grupos: [...grupos.values()].sort((a,b) => a.cargo.localeCompare(b.cargo) || a.codigo.localeCompare(b.codigo, undefined, {numeric:true})),
+    inicio, fim,
+    cargo: document.getElementById('f-cargo').value,
+    total: linhas.length,
+    dias: porDia.size
+  };
+}
+
+function fmtDataCurta(date){
+  return String(date.getDate()).padStart(2,'0') + '/' + String(date.getMonth()+1).padStart(2,'0') + '/' + date.getFullYear();
+}
+
+function montarResumoTexto(){
+  if(!ultimoResultado) return '';
+  const r = ultimoResultado;
+  const linhas = [
+    'Consulta Aulas — Grade APC CFP2/2026',
+    'Período: ' + fmtDataCurta(r.inicio) + ' a ' + fmtDataCurta(r.fim) + (r.cargo !== 'all' ? ' · Cargo: ' + r.cargo : ''),
+    '',
+    'Cargo\tCódigo\tDescrição\tTurmas\tQtd. sessões'
+  ];
+  r.grupos.forEach(g => {
+    linhas.push(g.cargo + '\t' + g.codigo + '\t' + g.descricao + '\t' + [...g.turmas].sort().join(',') + '\t' + g.count);
+  });
+  linhas.push('');
+  linhas.push('Total: ' + r.total + ' aulas em ' + r.dias + ' dias');
+  return linhas.join('\n');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+const CARGO_HEX = {APF:'#7a5ea8'};
+
+function montarResumoHTML(){
+  if(!ultimoResultado) return '';
+  const r = ultimoResultado;
+  const linhaHeader = ['Cargo','Código','Descrição','Turmas','Qtd. sessões']
+    .map(h => `<th style="text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#898781;border-bottom:1.5px solid #e1e0d9;padding:7px 10px">${h}</th>`).join('');
+
+  const linhasCorpo = r.grupos.map(g => {
+    const cor = CARGO_HEX[g.cargo] || '#52514e';
+    return `<tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #eeede8"><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;color:#fff;background:${cor}">${escapeHtml(g.cargo)}</span></td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eeede8;font-weight:700">${escapeHtml(g.codigo)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eeede8">${escapeHtml(g.descricao)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eeede8;color:#52514e;font-size:11px">${escapeHtml([...g.turmas].sort().join(', '))}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eeede8;text-align:right;font-weight:700;color:#1c2b4a">${g.count}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="font-family:'Source Sans 3',system-ui,-apple-system,sans-serif;color:#0b0b0b">
+    <div style="font-size:15px;font-weight:900;color:#1c2b4a;margin-bottom:3px">Consulta Aulas</div>
+    <div style="font-size:12px;color:#52514e;margin-bottom:12px">Período: ${escapeHtml(fmtDataCurta(r.inicio))} a ${escapeHtml(fmtDataCurta(r.fim))}${r.cargo !== 'all' ? ' · Cargo: ' + escapeHtml(r.cargo) : ''}</div>
+    <table style="border-collapse:collapse;font-size:12px;width:100%">
+      <thead><tr>${linhaHeader}</tr></thead>
+      <tbody>${linhasCorpo}</tbody>
+    </table>
+    <div style="margin-top:10px;font-size:11px;color:#52514e">Total: ${r.total} aulas em ${r.dias} dias</div>
+  </div>`;
+}
+
+async function copiarResumo(){
+  if(!ultimoResultado) return;
+  const texto = montarResumoTexto();
+  const btn = document.getElementById('btn-copiar');
+  const marcarSucesso = () => {
+    const original = btn.textContent;
+    btn.textContent = 'Copiado!';
+    btn.classList.add('copiado');
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('copiado'); }, 1800);
+  };
+  try{
+    if(navigator.clipboard && window.ClipboardItem){
+      const html = montarResumoHTML();
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([texto], {type:'text/plain'})
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      await navigator.clipboard.writeText(texto);
+    }
+    marcarSucesso();
+  }catch(err){
+    try{
+      await navigator.clipboard.writeText(texto);
+      marcarSucesso();
+    }catch(err2){
+      alert('Não foi possível copiar automaticamente. Selecione e copie o texto:\n\n' + texto);
+    }
+  }
+}
+
+async function compartilharResumo(){
+  if(!ultimoResultado) return;
+  const texto = montarResumoTexto();
+  if(navigator.share){
+    try{
+      await navigator.share({ title: 'Consulta Aulas', text: texto });
+    }catch(err){ /* usuário cancelou o compartilhamento — nada a fazer */ }
+  } else {
+    await copiarResumo();
+  }
+}
+
+function baixarCSV(){
+  if(!ultimoResultado) return;
+  const r = ultimoResultado;
+  const header = ['cargo','codigo','descricao','turmas','qtdSessoes'];
+  const rows = [header, ...r.grupos.map(g => [g.cargo, g.codigo, g.descricao, [...g.turmas].sort().join(','), g.count])];
+  const csv = rows.map(row => row.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(';')).join('\r\n');
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'disponibilidade_professor_' + toISO(r.inicio) + '_a_' + toISO(r.fim) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function baixarPDF(){
+  if(!ultimoResultado) return;
+  if(typeof window.jspdf === 'undefined'){ alert('Biblioteca de PDF não carregada. Verifique sua conexão.'); return; }
+  const r = ultimoResultado;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(28, 43, 74);
+  doc.text('Consulta Aulas', 40, 44);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(80, 80, 80);
+  const periodoTxt = 'Período: ' + fmtDataCurta(r.inicio) + ' a ' + fmtDataCurta(r.fim) + (r.cargo !== 'all' ? '   ·   Cargo: ' + r.cargo : '');
+  doc.text(periodoTxt, 40, 62);
+  doc.text('Total: ' + r.total + ' aulas em ' + r.dias + ' dias', 40, 76);
+
+  doc.autoTable({
+    startY: 92,
+    head: [['Cargo', 'Código', 'Descrição', 'Turmas', 'Qtd.']],
+    body: r.grupos.map(g => [g.cargo, g.codigo, g.descricao, [...g.turmas].sort().join(', '), String(g.count)]),
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 5 },
+    headStyles: { fillColor: [28, 43, 74], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 4: { halign: 'right' } },
+    margin: { left: 40, right: 40 }
+  });
+
+  doc.save('consulta_aulas_' + toISO(r.inicio) + '_a_' + toISO(r.fim) + '.pdf');
+}
+
+function renderTabelaResumo(grupos){
+  const tbody = document.getElementById('tbl-resumo');
+  tbody.innerHTML = '';
+  const ordenado = [...grupos.values()].sort((a,b) =>
+    a.cargo.localeCompare(b.cargo) ||
+    a.codigo.localeCompare(b.codigo, undefined, {numeric:true}));
+
+  ordenado.forEach(g => {
+    const tr = document.createElement('tr');
+
+    const tdCargo = document.createElement('td');
+    const bdg = document.createElement('span');
+    bdg.className = 'bdg ' + g.cargo.toLowerCase();
+    bdg.textContent = g.cargo;
+    tdCargo.appendChild(bdg);
+
+    const tdCod = document.createElement('td');
+    tdCod.textContent = g.codigo;
+    tdCod.style.fontWeight = '700';
+
+    const tdDesc = document.createElement('td');
+    tdDesc.textContent = g.descricao;
+
+    const tdPontoFocal = document.createElement('td');
+
+    const tdTurmas = document.createElement('td');
+    tdTurmas.textContent = [...g.turmas].sort().join(', ');
+    tdTurmas.style.color = 'var(--text-secondary)';
+    tdTurmas.style.fontSize = '11px';
+
+    const tdCount = document.createElement('td');
+    tdCount.className = 'num';
+    tdCount.textContent = g.count;
+
+    tr.append(tdCargo, tdCod, tdDesc, tdPontoFocal, tdTurmas, tdCount);
+    tbody.appendChild(tr);
+  });
+}
+
+const CARGO_STACK_ORDER = ['APF'];
+
+const TL_COL_W = 13;
+const TL_BAR_W = 8;
+const TL_MAX_BAR_H = 140;
+const TL_MIN_BAR_H = 12;
+const TL_EMPTY_BAR_H = 3;
+const TL_SEG_GAP = 2;
+const TL_BASE_OFFSET = 38;
+
+function renderCalendario(porDia, inicio, fim){
+  const container = document.getElementById('months-container');
+  container.innerHTML = '';
+
+  const maxCount = Math.max(1, ...[...porDia.values()].map(l => l.length));
+  const totalDays = Math.round((fim - inicio) / 86400000) + 1;
+  container.style.width = (totalDays * TL_COL_W + 8) + 'px';
+
+  const baseline = document.createElement('div');
+  baseline.className = 'tl-baseline';
+  container.appendChild(baseline);
+
+  let lastMonth = null;
+  for(let i=0; i<totalDays; i++){
+    const date = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + i);
+    const x = i * TL_COL_W;
+    const dow = date.getDay();
+
+    if(dow === 0 || dow === 6){
+      const wknd = document.createElement('div');
+      wknd.className = 'tl-weekend';
+      wknd.style.left = x + 'px';
+      wknd.style.width = TL_COL_W + 'px';
+      container.appendChild(wknd);
+    }
+
+    const monthKey = date.getFullYear() + '-' + date.getMonth();
+    if(monthKey !== lastMonth){
+      lastMonth = monthKey;
+      if(i > 0){
+        const divider = document.createElement('div');
+        divider.className = 'tl-divider';
+        divider.style.left = x + 'px';
+        container.appendChild(divider);
+      }
+      const label = document.createElement('div');
+      label.className = 'tl-month-label';
+      label.style.left = (x + 3) + 'px';
+      label.textContent = MESES_NOME[date.getMonth()].slice(0,3) + '/' + date.getFullYear();
+      container.appendChild(label);
+    }
+
+    const dayLabel = document.createElement('div');
+    dayLabel.className = 'tl-day-label';
+    dayLabel.style.left = x + 'px';
+    dayLabel.style.width = TL_COL_W + 'px';
+    dayLabel.textContent = date.getDate();
+    container.appendChild(dayLabel);
+
+    const iso = toISO(date);
+    const sessions = porDia.get(iso) || [];
+    const count = sessions.length;
+    const left = x + (TL_COL_W - TL_BAR_W) / 2;
+
+    if(count > 0){
+      const totalH = TL_MIN_BAR_H + (TL_MAX_BAR_H - TL_MIN_BAR_H) * (count / maxCount);
+      const porCargo = CARGO_STACK_ORDER.map(cg => ({cg, sess: sessions.filter(s => s.cargo === cg)}))
+        .filter(g => g.sess.length > 0);
+
+      let bottom = 0;
+      porCargo.forEach((g, idx) => {
+        const segH = totalH * (g.sess.length / count);
+        const isTop = idx === porCargo.length - 1;
+        const seg = document.createElement('div');
+        seg.className = 'tl-bar-seg has-data ' + g.cg.toLowerCase();
+        seg.style.left = left + 'px';
+        seg.style.width = TL_BAR_W + 'px';
+        seg.style.bottom = (bottom + TL_BASE_OFFSET) + 'px';
+        seg.style.height = Math.max(1, segH - (isTop ? 0 : TL_SEG_GAP)) + 'px';
+        seg.style.borderRadius = isTop ? '3px 3px 0 0' : '0';
+        seg.tabIndex = 0;
+        seg.addEventListener('pointerenter', e => showTooltip(e, date, sessions));
+        seg.addEventListener('pointermove', e => positionTooltip(e));
+        seg.addEventListener('pointerleave', hideTooltip);
+        seg.addEventListener('focus', e => showTooltip(e, date, sessions));
+        seg.addEventListener('blur', hideTooltip);
+        container.appendChild(seg);
+        bottom += segH;
+      });
+    } else {
+      const bar = document.createElement('div');
+      bar.className = 'tl-bar-seg empty';
+      bar.style.left = left + 'px';
+      bar.style.width = TL_BAR_W + 'px';
+      bar.style.bottom = TL_BASE_OFFSET + 'px';
+      bar.style.height = TL_EMPTY_BAR_H + 'px';
+      bar.style.borderRadius = '3px 3px 0 0';
+      container.appendChild(bar);
+    }
+  }
+}
+
+function renderTabelaDias(porDia){
+  const tbody = document.getElementById('tbl-dias');
+  tbody.innerHTML = '';
+  const dias = [...porDia.keys()].sort();
+  dias.forEach(iso => {
+    const sessions = porDia.get(iso);
+    const [y,m,d] = iso.split('-').map(Number);
+    const date = new Date(y, m-1, d);
+    const tr = document.createElement('tr');
+
+    const tdData = document.createElement('td');
+    tdData.textContent = String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '/' + y;
+
+    const tdDow = document.createElement('td');
+    tdDow.textContent = DOW[date.getDay()];
+    tdDow.style.color = 'var(--text-secondary)';
+
+    const tdCount = document.createElement('td');
+    tdCount.className = 'num';
+    tdCount.textContent = sessions.length;
+
+    tr.append(tdData, tdDow, tdCount);
+    tbody.appendChild(tr);
+  });
+}
+
+function showTooltip(e, date, sessions){
+  const tip = document.getElementById('tooltip');
+  tip.innerHTML = '';
+  const dateEl = document.createElement('div');
+  dateEl.className = 'tooltip-date';
+  dateEl.textContent = String(date.getDate()).padStart(2,'0') + '/' + String(date.getMonth()+1).padStart(2,'0') + '/' + date.getFullYear() + ' · ' + DOW[date.getDay()];
+  tip.appendChild(dateEl);
+
+  sessions.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'tooltip-row';
+    const dot = document.createElement('span');
+    dot.className = 'tooltip-dot';
+    dot.style.background = 'var(--' + s.cargo.toLowerCase() + ')';
+    const cod = document.createElement('span');
+    cod.className = 'tooltip-cod';
+    cod.textContent = s.cargo + '-' + s.turma + ' · ' + s.codigo + ' ';
+    const desc = document.createElement('span');
+    desc.textContent = s.descricao + ' (' + s.horaInicio + '–' + s.horaFim + ')';
+    row.append(dot, cod, desc);
+    tip.appendChild(row);
+  });
+
+  tip.classList.add('show');
+  positionTooltip(e);
+}
+function positionTooltip(e){
+  const tip = document.getElementById('tooltip');
+  const x = e.clientX, y = e.clientY;
+  const offset = 14;
+  let left = x + offset, top = y + offset;
+  if(left + 300 > window.innerWidth) left = x - 300 - offset;
+  if(top + 150 > window.innerHeight) top = y - 150 - offset;
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+function hideTooltip(){
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+document.getElementById('btn-view-cal').onclick = () => {
+  document.getElementById('months-container').style.display = 'block';
+  document.getElementById('tabela-dias-container').style.display = 'none';
+  document.getElementById('btn-view-cal').classList.add('active');
+  document.getElementById('btn-view-tbl').classList.remove('active');
+};
+document.getElementById('btn-view-tbl').onclick = () => {
+  document.getElementById('months-container').style.display = 'none';
+  document.getElementById('tabela-dias-container').style.display = 'block';
+  document.getElementById('btn-view-tbl').classList.add('active');
+  document.getElementById('btn-view-cal').classList.remove('active');
+};
+
+document.getElementById('btn-buscar').onclick = buscar;
+document.getElementById('btn-copiar').onclick = copiarResumo;
+document.getElementById('btn-compartilhar').onclick = compartilharResumo;
+document.getElementById('btn-baixar').onclick = baixarCSV;
+document.getElementById('btn-baixar-pdf').onclick = baixarPDF;
+document.getElementById('f-inicio').addEventListener('change', () => {
+  const ini = document.getElementById('f-inicio').value;
+  if(ini) document.getElementById('f-fim').min = ini;
+});
+
+initDefaults();
+buscar();
+</script>
+</body>
+</html>
