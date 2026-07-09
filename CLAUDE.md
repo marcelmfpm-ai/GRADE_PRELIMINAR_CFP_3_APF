@@ -13,7 +13,7 @@ Este projeto é uma adaptação do projeto irmão `GRADE_PRELIMINAR` (CFP2/2026,
 - `index.html` — a aplicação inteira (UI + dados + lógica), ~360KB.
 - `index.html.orig.bak` — cópia intocada do `GRADE_PRELIMINAR` original (4 cargos), no estado em que foi copiado para este projeto. **Não é só um backup de segurança** — é o *input* que `build_grade.py` lê para reconstruir a estrutura HTML (nav de semanas, wrapper do calendário) a cada regeração. Não apagar.
 - `build_grade.py` — script Python que gera a grade inteira (calendário + config) a partir do zero, aplicando as regras de agendamento descritas abaixo. Ver seção "Como regenerar a grade" mais adiante.
-- `CFP 3 AGENTES.xlsx` — planilha-fonte do currículo (aba DESCRIÇÃO: código/descrição/horas de cada disciplina; aba HORÁRIO: os 7 horários do dia). Se as horas de alguma disciplina mudarem, atualizar a lista `DISCIPLINES` em `build_grade.py` e rerodar.
+- `CFP 3 AGENTES.xlsx` — planilha-fonte do currículo (aba DESCRIÇÃO: código/descrição/horas de cada disciplina, **+ colunas RECURSOS HUMANOS PROFESSOR e RECURSOS HUMANOS MONITOR** por disciplina; aba HORÁRIO: os 7 horários do dia). Se as horas de alguma disciplina mudarem, atualizar a lista `DISCIPLINES` em `build_grade.py` e rerodar. **As colunas RECURSOS HUMANOS não alimentam `build_grade.py`** — são lidas manualmente e replicadas na constante JS `RH_NECESSIDADE` dentro do `index.html` (ver seção "Gráfico Professores necessários por dia" mais abaixo); se algum valor dessas colunas mudar na planilha, `RH_NECESSIDADE` precisa ser atualizada à mão, não há sincronização automática.
 - `generate-csv.js` — script Node (`jsdom`) que extrai os dados do calendário de dentro do `index.html` e gera `calendario.csv`. Mantido do projeto original; `build_grade.py` já gera o CSV diretamente (mais simples, sem depender de Node), então normalmente não precisa rodar isso.
 - `calendario.csv` — saída gerada; não editar manualmente.
 - `disponibilidade-professor.html` + `generate-professor-data.py` — ferramenta separada de consulta de disponibilidade de professor; rodar `python3 generate-professor-data.py` depois de qualquer mudança no calendário do `index.html` para manter os dados embutidos sincronizados.
@@ -107,11 +107,26 @@ Os dados das aulas existem em **dois lugares** dentro do `index.html`:
 
 ### Config de cargo/turmas
 
-`CARGOS=['APF']`, `COLS={APF:'#7a5ea8'}`, `BASE_TURMAS={APF:19}`, `DCIBER_PARES={APF:['M2.5','M2.6','M2.7']}`. `getCargo()`/`classCargo()` só reconhecem `APF` (qualquer outra coisa cai em `'outro'`/`'apf'` fallback).
+`CARGOS=['APF']`, `COLS={APF:'#7a5ea8'}`, `BASE_TURMAS={APF:19}`, `DCIBER_PARES={APF:['M2.5','M2.6','M2.7']}`. `getCargo()`/`classCargo()` só reconhecem `APF` (qualquer outra coisa cai em `'outro'`/`'apf'` fallback). **Desde 09/Jul/2026 não existe mais UI de filtro por Cargo** (botões "Todos"/"APF" removidos da barra de filtros, já que só há 1 cargo — pedido explícito do usuário) — mas as constantes acima continuam existindo e sendo usadas internamente (ex.: `renderGanttBars`, `legendaCargos`), a variável `cargoBt` só nunca mais é alterada (fica sempre `'all'`).
 
-### Filtros, abas e exports
+### Abas (3, desde 09/Jul/2026)
 
-Ver `GRADE_PRELIMINAR/CLAUDE.md` (projeto irmão) para os detalhes de `filtrarDados()`, `renderAll()`, as 6 abas (`panel-visao`, `panel-grade`, `panel-semanas`, `panel-gantt`, `panel-calendario`, `panel-graficos`), e os exports (XLSX via ExcelJS, CSV, HTML atualizado, GitHub) — tudo idêntico neste projeto, só os dados de cargo/turma mudam.
+**As abas "Visão Geral", "Grade Detalhada" e "Por Semana" foram removidas** (pedido explícito do usuário) — junto foram removidos os painéis `panel-visao`/`panel-grade`/`panel-semanas` e as funções JS que só serviam a eles (`renderMetrics`, `renderChSem`, `renderSemCargo`, `renderChSemCargo`, `renderTabela`, `renderTimeline`, `renderGanttDots`, `toggleSem`) — todas ficaram inalcançáveis e foram apagadas do `<script>`. Hoje só existem **3 abas**:
+
+- **Gantt** (`panel-gantt`) — só o card "Gantt — barras de duração por aula" (`renderGanttBars`/`gantt-bars`). O card de cima que existia antes ("Gantt — presença de cargos por aula × semana", pontos coloridos por cargo, `renderGanttDots`/`gantt-dots`) foi removido a pedido do usuário ("deixe apenas o gráfico inferior").
+- **Calendário** (`panel-calendario`) — inalterada (ver seção própria mais abaixo).
+- **Professores** (`panel-graficos`, o `id` do painel não mudou, só o rótulo do botão da aba) — antes se chamava "Gráficos" e tinha 2 cards (Horas por semana · por cargo + Professores necessários por dia); o card "Horas por semana" foi removido a pedido do usuário, sobrou só "Professores necessários por dia" (ver seção própria abaixo).
+
+`filtrarDados()`/`renderAll()` e os exports (XLSX via ExcelJS, CSV, HTML atualizado, GitHub) continuam iguais ao projeto irmão `GRADE_PRELIMINAR/CLAUDE.md` fora do que está documentado aqui.
+
+### Filtro por disciplina: dropdown "Aula" + botões por módulo (desde 09/Jul/2026)
+
+Além do dropdown `sel-aula` (que já existia), a barra de filtros agora tem:
+- Um botão **"Todas"** (`.tag.reset`) entre o rótulo "Aula" e o `<select>`, que reseta o filtro de disciplina (`filtrarAulaBtn('all', this)`).
+- **3 linhas de botões-pill**, uma por módulo do currículo (Módulo 1: Plantão/Sobreaviso; Módulo 2: Eleitoral 1/Eleitoral 2/Previdenciário/DCiber/Damaz; Módulo 3: Fonte Humana/Planejamento Vigilância/Aeroporto/Análise IPED/Planejamento Operação/Desencadeamento/Análise Material/Audiência/Revisão), cada botão filtrando direto por código via `filtrarAulaBtn(codigo, el)` — mesmo mecanismo do dropdown, só que como atalho visual. `filtrarAulaBtn` seta `sel-aula.value`, limpa a classe `active` de todos os `.tag` e chama `renderAll()`.
+- O botão **DCiber** (dentro da linha do Módulo 2) reaproveita `filtrarDCIBER(el)` (já existia antes na antiga linha "Cargo"), que ativa o modo especial `dciberAtivo` (filtra os 3 códigos `M2.5/M2.6/M2.7` de uma vez). Visualmente usa a mesma cor pastel dos outros botões do Módulo 2 (`.tag.mod2`) — antes tinha uma cor roxo-escuro própria (`.tag.dciber`, removida do CSS).
+- Cores por módulo: `.tag.mod1` (azul pastel), `.tag.mod2` (verde pastel), `.tag.mod3` (laranja pastel) — só estética, não afeta filtragem.
+- A função `filtrarCargo` (usada pelos antigos botões de Cargo) foi removida junto com os botões — não sobrou nenhuma referência a ela.
 
 ### Botão "Referência"
 
@@ -120,6 +135,47 @@ Botão na barra de filtros (`.ref-btn`, ao lado do filtro de Turma) abre um moda
 A coluna EPF é estática (extraída à mão uma vez da grade CFP2/2026, mesmos dados da tabela na regra 1 acima, só reparticionada por módulo). **A coluna APF não é mais recalculada automaticamente** — `build_grade.py` está congelado (ver aviso no topo do arquivo), então o mecanismo antigo (`REF_EPF_ORIGINAL` + `_week_summary_atual()` no script) não roda mais. A partir da fase manual, essa coluna é **atualizada à mão direto no `index.html`** toda vez que uma semana é ajustada: recalcular a partir do `calendario.csv` (agrupar por semana pela data, contar ocorrências por código — despadronizando `M2.04`→`M2.4` etc. —, separar por módulo M1/M2/M3, ordenar dentro de cada módulo pela ordem de `DISCIPLINES` em `build_grade.py`) e substituir `<thead>`+`<tbody id="ref-tbody">` por regex no `index.html`. **Isso significa que, depois de qualquer ajuste manual de semana, vale a pena perguntar ao usuário se quer o botão Referência atualizado também** — não acontece sozinho.
 
 CSS/HTML/JS do botão e do modal ainda vivem no `index.html.orig.bak` também (herdado de quando o botão era gerado pelo script), mas isso deixou de importar na prática enquanto `build_grade.py` estiver congelado — a fonte da verdade agora é só o `index.html` atual.
+
+### "Profissionais necessários" (RH_NECESSIDADE) — 4 superfícies visuais, desde 09/Jul/2026
+
+Toda a UI de "quantos profissionais (professor+monitor) são necessários" — gráfico, rodapé do calendário, tarja nos cards, tooltip nos botões de módulo — deriva de **uma única fonte**: a constante `RH_NECESSIDADE` + a função `computeProfessoresPorDia(d)`. Documentar aqui porque a fórmula pediu 3 iterações do usuário até fechar certa, e porque agora existem 4 lugares diferentes na UI que dependem dela (mudar a fórmula ou os valores afeta todos os 4 ao mesmo tempo).
+
+**`RH_NECESSIDADE`** (constante JS, perto de `computeProfessoresPorDia`): mapa `código → RECURSOS HUMANOS PROFESSOR + RECURSOS HUMANOS MONITOR` (somados), com as chaves já despadronizadas para o formato do `DADOS` (`M2.04` na planilha → `M2.4` aqui). `M1.2` (Sobreaviso) está com `0` porque a planilha não tem valores preenchidos para essa disciplina. **Isto é uma cópia manual da planilha, não uma leitura ao vivo** — qualquer edição nas colunas RECURSOS HUMANOS do Excel precisa ser replicada à mão nesta constante. Já aconteceu uma vez: `M3.7` (Análise de Material Apreendido) estava `10+8=18`, o usuário corrigiu a coluna PROFESSOR da planilha de `10` para `3` (ficando `3+8=11`), e a constante foi atualizada manualmente para acompanhar.
+
+**Fórmula de `computeProfessoresPorDia(d)`** (a versão final, depois de 2 correções pedidas pelo usuário):
+1. Para cada dia real, quebra cada sessão de `DADOS` (`r[5]`, o campo `horario`) nos períodos individuais que ela ocupa (split por `' + '` quando a sessão cobre 2 períodos consecutivos/4h).
+2. Para cada período (recorte de horário exato, ex. `"08:00–09:40"`), soma `RH_NECESSIDADE[código]` de todas as turmas que têm aula simultânea nesse período — turmas ao mesmo tempo exigem pessoas diferentes.
+3. `pico` = maior demanda entre os períodos do dia (quantas pessoas precisam estar fisicamente presentes ao mesmo tempo, no horário mais cheio).
+4. Como cada profissional cobre até 4 períodos (8h) por dia, o **mesmo grupo do pico pode ser reaproveitado** nos demais períodos do dia — por isso o total do dia **não** é a soma de todos os períodos. O necessário é `max(pico, ceil(soma de todos os períodos do dia / 4))`: o segundo termo só passa a valer se a demanda total do dia, somada, exigir mais gente do que o grupo do pico consegue cobrir dentro do limite de 4 períodos/pessoa.
+
+**Histórico de correções (não repetir)**:
+- 1ª versão: pico de turmas simultâneas por período **sem peso de RH** (contava 1 "professor" por turma) + teto de capacidade — descartada porque ignorava que disciplinas diferentes precisam de quantidades de pessoal bem diferentes (ex. Aeroporto precisa de muito mais gente por turma que Revisão).
+- 2ª versão: `RH_NECESSIDADE[código] × horas da sessão`, somado para **todas as sessões do dia** e dividido por 8 — descartada porque contava a mesma pessoa mais de uma vez quando ela migra de um período pro outro no mesmo dia (dava números artificialmente altos, ex. 36 em vez de 22 num dia com 2 turmas simultâneas de manhã + as mesmas 2 de tarde).
+- 3ª versão (atual): pico por período + teto pela capacidade de 4 períodos/dia, como descrito acima — validada com o usuário usando o exemplo real de 27/Nov (M3.7, 2 turmas de manhã + 2 à tarde, necessidade 11/turma → resultado esperado 22, não 36).
+
+**Caso de borda confirmado pelo usuário (não é bug, não mexer)**: 07/Set/2026 mostra **31**, não 25 (pico dos 4 períodos diurnos) nem 37 (25 diurno + 12 noturno somados à parte). A fórmula assume que os mesmos profissionais **podem se dividir entre turno diurno e noturno** no mesmo dia, desde que não passem de 4 períodos totais — por isso o teto de capacidade (`ceil(124/4)=31`) fica *entre* o pico isolado (25) e a soma ingênua dia+noite (37). O usuário confirmou explicitamente que esse comportamento está correto ("você está correto, é 31 mesmo, mantém o raciocínio") — se uma sessão futura questionar esse número, a resposta é: está certo, não ajustar.
+
+**As 4 superfícies visuais que usam essa fórmula**:
+1. **Gráfico da aba Professores** (`#chart-prof-dia`, função `renderProfessoresDia`) — um valor por dia letivo do curso inteiro (~75 barras), respeitando os filtros ativos (Turma/Aula/Semana/Cargo). Usa `svgBarChartScroll` (variante de `svgBarChart` com largura de coluna fixa em pixels + wrapper `.svg-chart-wrap-x` com `overflow-x:auto`), porque não caberiam ~75 barras legíveis num SVG de largura 100%.
+2. **Rodapé de cada tabela de semana no Calendário** (`renderProfessoresDiaCalendario`, `tfoot.cal-prof-foot`) — desde 09/Jul/2026, cada uma das 15 tabelas de semana ganha uma linha extra no rodapé ("Profissionais necessários") com uma barrinha + número exatamente embaixo de cada coluna de dia (Seg...Dom), usando o mesmo `<colgroup>` da tabela para alinhar perfeitamente. Cada semana calcula seus próprios valores (não é o mesmo gráfico da aba Professores duplicado — é per-semana, injetado via JS a cada `renderAll()`/edição do calendário, não vive no HTML estático). **Testado e confirmado**: a atualização é automática após drag-and-drop, delete, paste ou undo (todos passam por `refreshCalendarDerivedViews()` → `renderAll()` → `renderProfessoresDiaCalendario()`) — se um número parecer "não atualizar" depois de mudar algo, o mais provável é (a) a mudança não afeta o período de pico do dia (ver comportamento matemático acima) ou (b) a aba do navegador está com uma versão desatualizada do `index.html` (precisa recarregar), não um bug de fato — já foi verificado empiricamente ambos os casos nesta sessão.
+3. **Tarja verde em cada card de aula do calendário** (`.cal-entry`, função `setupBadgesProfCards`, classe `.cal-prof-badge`, cor `#4f9d72` igual ao gráfico) — canto inferior direito de cada card, mostra `RH_NECESSIDADE[código]` daquela disciplina específica. Disciplinas com `0` (M1.2) não ganham tarja. Reaplicada a cada `renderAll()`.
+4. **Tooltip (title) nos botões de módulo** (função `setupTituloBotoesModulo`) — passar o mouse em qualquer botão de Módulo 1/2/3 mostra "N profissionais necessários (professor + monitor)"; o botão DCiber (representa 3 códigos) lista os 3 separados. Rodado uma vez no load (não precisa re-rodar em `renderAll()`, já que os botões e seus códigos são estáticos).
+
+### Exportar CSV/XLSX por semana (desde 09/Jul/2026)
+
+Os botões "GERAR CSV"/"GERAR XLSX" (barra de export do Calendário) não exportam mais direto ao clicar — abrem um modal (`#export-sem-overlay`, reaproveita o CSS de `.ref-overlay`/`.ref-modal` do botão Referência) pedindo a semana (ou "Todas as semanas"), pré-selecionando o valor atual do filtro `sel-sem` se houver um válido. `exportCalendarCSV(sem)`/`exportCalendarXLSX(sem)` e `extractCalendarRows(semFiltro)` agora aceitam esse parâmetro opcional (se omitido, `extractCalendarRows` cai de volta a ler `sel-sem` direto, mantendo compatibilidade). O nome do arquivo baixado inclui a semana escolhida (ex. `APC_10000_calendario_S7_2026-07-09.csv`) quando não é "todas".
+
+### Backlog recolhido por padrão (09/Jul/2026)
+
+O painel lateral "Backlog" (área de drag-and-drop para estacionar aulas) começa **minimizado** — pedido explícito do usuário, só deve expandir se o usuário clicar no botão `›`. Como o mecanismo original só aplicava `dd-minimized`/`dd-backlog-min` quando o layout é criado do zero via JS (função que monta `dd-layout`/`dd-backlog` — guarda de `if(...||document.getElementById('dd-backlog'))return`, ou seja só roda na primeira montagem), e o `index.html` atual já vem com esse HTML pré-montado no arquivo estático, as classes `dd-minimized`/`dd-backlog-min` e o glifo `‹`/"Expandir backlog" do botão tiveram que ser adicionados **direto no HTML estático** (não só na função JS) para o estado inicial realmente vir recolhido.
+
+### Redesenho visual da barra de filtros/abas/calendário (09/Jul/2026)
+
+Tudo pedido explicitamente pelo usuário, puramente estético (não muda nenhuma lógica de filtragem/dados):
+- `.header` (tarja do título): era azul-claro (`#c2d8ee`) → passou por cinza (`#d6d6d6`) → **cor final: azul-escuro `#1c2b4a`** (mesma cor de `.tab.active`), com texto em branco/cinza-claro para contraste.
+- `.tabs` (faixa com os botões Gantt/Calendário/Professores): ganhou fundo `#1c2b4a` (mesmo azul-escuro), com a aba ativa invertida para fundo branco + texto azul (`.tab.active{background:#fff;color:#1c2b4a}`) pra continuar se destacando contra o novo fundo escuro. Motivo: "demarcar melhor as regiões" da tela.
+- `#panel-calendario .card.dd-enabled` (moldura em volta de todo o bloco do calendário semanal — botões de export, navegação de semana e tabela): ganhou borda `2px solid #1c2b4a`, mesma cor, para fechar visualmente o "quadro" que começa na faixa das abas.
+- `.main{max-width}`: `1160px` → `1600px`, porque a tabela do calendário (68px período + 90px horário + 7×150px dias = 1208px) mais a coluna Backlog (260px) mais o gap (14px) mais o padding do `.main` (40px) somam ~1520px — abaixo de 1600px a tabela precisava de scroll horizontal interno para mostrar os 7 dias da semana de uma vez; pedido explícito do usuário para eliminar esse scroll.
 
 ### Persistência local (localStorage)
 
