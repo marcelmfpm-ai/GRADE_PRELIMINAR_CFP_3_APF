@@ -19,14 +19,31 @@ Este projeto é uma adaptação do projeto irmão `GRADE_PRELIMINAR` (CFP2/2026,
 - `disponibilidade-professor.html` + `generate-professor-data.py` — ferramenta separada de consulta de disponibilidade de professor; rodar `python3 generate-professor-data.py` depois de qualquer mudança no calendário do `index.html` para manter os dados embutidos sincronizados.
 - `.github/workflows/generate-csv.yml` — herdado do projeto original; dispara `generate-csv.js` a cada push. Como este repo não tem remoto configurado ainda, é inofensivo mas pode ser removido se nunca for usado.
 
-## Como regenerar a grade (`build_grade.py`)
+## ⚠️ Status atual: fase de edição manual, `build_grade.py` congelado
 
-Rodar com `python3 build_grade.py` (lê `index.html.orig.bak`, escreve `index.html` e `calendario.csv`; depois rodar `python3 generate-professor-data.py` para sincronizar o `disponibilidade-professor.html`). Use isso sempre que:
-- A carga horária de alguma disciplina no `CFP 3 AGENTES.xlsx` mudar (atualizar `DISCIPLINES` no script primeiro).
-- O número de turmas mudar (atualizar `TURMAS`).
-- As datas do curso mudarem (`COURSE_START`, `START_WEEK`, `END_WEEK`).
+**Desde 08/Jul/2026, o projeto saiu do modo "gerado por script" e entrou em modo de ajuste manual semana a semana.** O usuário confirmou explicitamente: todas as regras algorítmicas iniciais já foram aplicadas, e a partir daí ele ajusta a grade manualmente, semana por semana, e cada ajuste **deve permanecer fixo** — inclusive quando semanas posteriores forem ajustadas depois.
 
-O script recria a grade inteira do zero a cada execução — não faz sentido rodá-lo e depois tentar mesclar com edições manuais feitas na UI; se o usuário já editou a grade manualmente pela UI (drag-and-drop), rodar o script de novo **descarta essas edições**.
+**Isso significa: NÃO rodar `python3 build_grade.py` neste projeto a partir de agora, a menos que o usuário peça explicitamente uma regeneração completa.** Rodar o script descarta *todos* os ajustes manuais feitos desde então (ver log completo na seção "Ajustes manuais aplicados" abaixo) — ele recria a grade do zero a partir de `index.html.orig.bak` + a lógica de `build_grade.py`, que não sabe nada sobre o que foi feito manualmente depois.
+
+`index.html` (+ `calendario.csv` + `disponibilidade-professor.html`) é agora a **base fixa e definitiva**. Qualquer pedido de ajuste ("mude a semana N para tal") deve ser implementado como edição pontual, direta, escopada exatamente à semana/célula pedida — sem tocar em mais nada, e sem rodar o script. Depois de qualquer edição manual no calendário do `index.html`, ainda é preciso rodar `python3 generate-professor-data.py` para ressincronizar o `disponibilidade-professor.html` (esse script só lê o `index.html`, não mexe em nada, é seguro rodar sempre).
+
+### Como fazer uma edição pontual com segurança
+
+Editar HTML minificado de ~360KB numa única linha por semana à mão é arriscado (`str.replace` ingênuo já corrompeu uma linha do CSV nesta sessão, ao operar sobre o arquivo inteiro em vez de por linha — ver histórico). Padrão que funcionou de forma confiável, usado em toda a fase manual:
+
+1. **`calendario.csv`**: ler o arquivo respeitando exatamente o formato (`﻿` BOM + linhas `\r\n`, sem usar `open(..., newline='')` misturado com split ingênuo — leitura sem `newline=''` faz o Python traduzir `\r\n`→`\n` silenciosamente e quebra qualquer split subsequente por `\r\n`). Processar **linha a linha** (nunca `str.replace` no conteúdo inteiro do arquivo), filtrar/reconstruir só as linhas do(s) código(s) afetado(s), re-somar as datas/turmas, re-ordenar por `(data, horaInicio)` e reescrever com o mesmo BOM/CRLF. Sempre validar depois: contagem de 19 linhas por código (`awk -F';' 'NR>1{print $2}' calendario.csv | sort | uniq -c`).
+2. **`index.html`**: localizar o bloco `<div class="cal-week" id="cal-sem-N">...` da semana via string search (não regex gulosa sobre o arquivo inteiro), extrair as `<tr>` (linha 0 = cabeçalho de dias, linha 1 = EXTRA, linha 2 = 1º, linha 3 = 2º, linha 4 = 3º, linha 5 = 4º, linha 6 = 5º, linha 7 = 6º — **8 linhas**, não 7, por causa do `<tr>` de cabeçalho) e depois as `<td>` de cada linha (índice 0=período, 1=horário, 2=Seg...8=Dom). Remover os `cal-entry` antigos do(s) código(s) afetado(s) por regex específica (cor + código + descrição, não um regex genérico), inserir os novos entries no fechamento `</td>` da célula certa. Validar contagem de divs por turma depois (`grep`/regex contando ocorrências de `APF-X` por código, esperando 2 por turma para disciplinas de 4h/2 slots, 1 para disciplinas de 2h/1 slot).
+3. Sempre conferir visualmente antes de considerar concluído: renderizar a semana afetada com Chrome headless (`--headless --screenshot`) injetando um `mostrarSem(N, ...)` no `load`, e comparar com o que foi pedido.
+4. Rodar `python3 generate-professor-data.py` por último.
+
+## Como regenerar a grade (`build_grade.py`) — histórico/referência, NÃO USAR sem confirmar com o usuário
+
+Rodar com `python3 build_grade.py` (lê `index.html.orig.bak`, escreve `index.html` e `calendario.csv`; depois rodar `python3 generate-professor-data.py` para sincronizar o `disponibilidade-professor.html`). Antes da fase manual (ver aviso acima), isso era usado sempre que:
+- A carga horária de alguma disciplina no `CFP 3 AGENTES.xlsx` mudava (atualizar `DISCIPLINES` no script primeiro).
+- O número de turmas mudava (atualizar `TURMAS`).
+- As datas do curso mudavam (`COURSE_START`, `START_WEEK`, `END_WEEK`).
+
+O script recria a grade inteira do zero a cada execução — não faz sentido rodá-lo e depois tentar mesclar com edições manuais feitas na UI; se o usuário já editou a grade manualmente (pela UI ou por mim), rodar o script de novo **descarta essas edições**. As regras abaixo descrevem a lógica do script tal como ficou configurada quando a fase manual começou — ainda é a base de como a grade *começou*, mas o estado atual do `index.html` já diverge bastante dela a partir da semana 7 (ver log de ajustes manuais).
 
 ### Regras de agendamento (extraídas da grade original de 4 cargos)
 
@@ -63,13 +80,21 @@ A grade original (`GRADE_PRELIMINAR`, CFP2/2026) foi analisada célula a célula
 
 Esses parâmetros (`STACK_CAP`, `STRICT_LOOKAHEAD`, `PACKED_LOOKAHEAD`, `PACKED_CODES`, `DUAL_CODES`, `NO_SELF_STACK`, `MAX_M1_PER_WEEK`) estão todos no topo/meio de `build_grade.py`, comentados. Se o número de turmas ou a carga horária mudar muito, pode ser necessário reajustar `STACK_CAP` e `PACKED_CODES` por tentativa — o script falha com `RuntimeError: Ran out of days placing ...` quando os parâmetros atuais não são suficientes para caber no curso; nesse caso, é hora de aumentar `STACK_CAP`, ampliar `PACKED_CODES`, ou negociar com o usuário exceções de dia/horário.
 
-### Ajustes manuais pontuais feitos direto no `index.html` (fora do `build_grade.py`)
+### Ajustes manuais aplicados (fase de edição manual, a partir de 08/Jul/2026)
 
-Nem todo ajuste vira regra geral no script — às vezes é uma edição pontual, feita direto no DOM do `index.html` (e replicada à mão no `calendario.csv`/`disponibilidade-professor.html`), quando o usuário só quer mexer num ponto específico da grade sem alterar o algoritmo. **Rodar `build_grade.py` de novo recalcula tudo do zero e descarta esses ajustes** — por isso ficam listados aqui, não no código.
+**Este é o estado real e atual da grade a partir da semana 7.** As regras 1-10 acima descrevem como `build_grade.py` gerou a base do curso (e ainda são precisas até por volta da semana 6); a partir daí, tudo listado abaixo foi aplicado como edição manual direta (`index.html` + `calendario.csv` + `disponibilidade-professor.html`), **sem** passar pelo script, e **substitui** o que o script teria produzido. Se o script rodar de novo por engano, tudo isto se perde — ver aviso no topo do arquivo.
 
-Nenhum ajuste pontual ativo no momento. Histórico do que já passou por aqui e não se aplica mais:
-- Consolidação do IPED de 23/Out em 22/Out (semana 9) — descartada quando a grade foi regenerada em 08/Jul/2026 para implementar a regra 8 (M2.4/M3.5 em paralelo).
-- Duas turmas de M3.2 (Planejamento de Vigilância) que sobravam sozinhas em 25/Set foram movidas à mão para 18/Set (junto com M2.2) em 08/Jul/2026 — essa edição manual foi **descartada** por uma regeneração subsequente do `build_grade.py`, mas o problema que ela corrigia deixou de existir: a regra 9 (M2.2/M3.2 com `lookahead` dinâmico) já garante pareamento 1:1 sem sobra nenhuma toda vez que o script roda, então esse ajuste manual não precisa mais ser reaplicado.
+- **Semana 7 (05–11/Out)**: M2.3 (Previdenciário) e M3.4 (IPED) rodam simultâneas, uma turma de cada por horário, segunda a quinta (mesmo padrão de pareamento das regras 6/8/9, só que feito à mão em vez de no script). Sexta 09/Out concentra as 4 turmas de M3.4 que sobraram sem par de M2.3 (F,G empilhadas de manhã; H,I empilhadas à tarde).
+- **Semana 8 (12–18/Out)**: M3.4 continua (turmas J–S). As turmas de M2.4 (Damaz) que estavam na semana 9 (A–J) foram trazidas pra cá, simultâneas com M3.4 em cada célula.
+- **Semana 9 (19–25/Out)**: as turmas de M2.4 que estavam na semana 10 (K–S) foram trazidas pra cá, simultâneas com M3.5 (Planejamento de Operação), que já estava nessa semana.
+- **Semanas 10–11 (26/Out–06/Nov)**: M2.5, M2.6 e M2.7 (DCiber) inteiras reorganizadas — só 2 turmas/dia, cada uma fazendo as 3 partes do DCiber em sequência no mesmo turno: manhã (Extra→M2.5, 1º→M2.6, 2º→M2.7) e tarde (3º→M2.5, 4º→M2.6, 5º→M2.7, este último já em horário noturno). Turma A começa segunda 26/Out; turma S (a 19ª, sozinha) fecha na sexta 06/Nov de manhã.
+- **Semanas 12–13 (09–20/Nov)**: M3.6 (Desencadeamento) reconstruída do zero começando na turma A, segunda a sexta, sem empilhamento — 1º+2º horário de manhã, 3º+4º à tarde, 2 turmas/dia. Termina na turma S, sexta 20/Nov de manhã. (Motivo original do deslocamento: a semana 11 passou a ser só DCiber; a versão final foi reconstruída do zero a pedido do usuário, não é mais o deslocamento "+1 dia útil" que foi tentado primeiro.)
+- **M3.7 (Análise de Material Apreendido)**: as turmas que ocupavam 20/Nov (que hoje é semana de M3.6) foram deslocadas para a sexta seguinte (27/Nov), empilhadas com o que já estava lá. Depois, a **semana 14 inteira (23–29/Nov)** foi reordenada em sequência A→S pela posição no calendário (mesmos dias/horários de antes, só a letra da turma mudou para ficar em ordem).
+- **Semana 15 (30/Nov–04/Dez)**: M3.8 (Audiência de Instrução) reconstruída inteira dentro da semana, começando na turma A — segunda a sexta, 4 turmas/dia (1º ao 4º horário, sem Extra/5º/6º), termina em S na sexta.
+- **Semana 16 (07–11/Dez)**: M3.9 (Revisão) reconstruída do mesmo jeito, começando na turma A.
+- **Referência histórica (já obsoleta)**: consolidação do IPED de 23/Out em 22/Out (semana 9) — feita antes da fase manual atual, depois substituída pelo que está descrito acima. Duas turmas de M3.2 que sobravam em 25/Set também já foram resolvidas (ver regra 9).
+
+Sempre que uma nova semana for ajustada manualmente, adicionar um item aqui (não é opcional — é a única forma de uma sessão futura saber o que já foi fixado e não deve ser mexido sem pedido explícito).
 
 ## Arquitetura da UI (herdada do projeto original)
 
@@ -90,9 +115,11 @@ Ver `GRADE_PRELIMINAR/CLAUDE.md` (projeto irmão) para os detalhes de `filtrarDa
 
 ### Botão "Referência"
 
-Botão na barra de filtros (`.ref-btn`, ao lado do filtro de Turma) abre um modal (`#ref-overlay`) com uma tabela de duas colunas por semana: a coluna estática "Aulas EPF · grade original" (extraída à mão uma vez da grade CFP2/2026, mesmos dados da tabela na regra 1 acima) e a coluna "Aulas APF · grade atual", **recalculada em toda regeração** a partir de `entries` no `build_grade.py` (agrupa por semana, conta ocorrências por código, ordena pela ordem de `DISCIPLINES`). Serve para o usuário comparar visualmente como a grade atual (19 turmas) ficou em relação ao parâmetro original (EPF, 9 turmas).
+Botão na barra de filtros (`.ref-btn`, ao lado do filtro de Turma) abre um modal (`#ref-overlay`) com uma tabela comparando grade original × grade atual, por semana. **Desde 09/Jul/2026, a tabela tem 6 colunas de dados** (não mais 2): 3 colunas por módulo (M1/M2/M3) para a "Grade Original (EPF)" e 3 colunas por módulo para a "Grade Atual (APF)", com cabeçalho de dois níveis (`colspan="3"` agrupando cada bloco + uma linha com M1/M2/M3) e cores diferentes por bloco (`.ref-grp-orig` roxo claro, `.ref-grp-atual` roxo mais escuro) — pedido explícito do usuário para melhorar a comparação visual módulo a módulo, já que antes cada célula misturava M1/M2/M3 no mesmo texto.
 
-CSS/HTML/JS do botão e do modal vivem no **`index.html.orig.bak`** (não só no `index.html` gerado) — incluindo o placeholder `<tbody id="ref-tbody"><!--REF_ROWS--></tbody>`, que o `build_grade.py` localiza e substitui pelas linhas calculadas (`REF_EPF_ORIGINAL` + `_week_summary_atual()`, perto do final do script, antes de escrever `OUT_HTML`). Por estar no `.orig.bak`, o botão **sobrevive a qualquer regeneração** — diferente dos ajustes pontuais da seção acima, que são perdidos.
+A coluna EPF é estática (extraída à mão uma vez da grade CFP2/2026, mesmos dados da tabela na regra 1 acima, só reparticionada por módulo). **A coluna APF não é mais recalculada automaticamente** — `build_grade.py` está congelado (ver aviso no topo do arquivo), então o mecanismo antigo (`REF_EPF_ORIGINAL` + `_week_summary_atual()` no script) não roda mais. A partir da fase manual, essa coluna é **atualizada à mão direto no `index.html`** toda vez que uma semana é ajustada: recalcular a partir do `calendario.csv` (agrupar por semana pela data, contar ocorrências por código — despadronizando `M2.04`→`M2.4` etc. —, separar por módulo M1/M2/M3, ordenar dentro de cada módulo pela ordem de `DISCIPLINES` em `build_grade.py`) e substituir `<thead>`+`<tbody id="ref-tbody">` por regex no `index.html`. **Isso significa que, depois de qualquer ajuste manual de semana, vale a pena perguntar ao usuário se quer o botão Referência atualizado também** — não acontece sozinho.
+
+CSS/HTML/JS do botão e do modal ainda vivem no `index.html.orig.bak` também (herdado de quando o botão era gerado pelo script), mas isso deixou de importar na prática enquanto `build_grade.py` estiver congelado — a fonte da verdade agora é só o `index.html` atual.
 
 ### Persistência local (localStorage)
 
