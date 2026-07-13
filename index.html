@@ -903,6 +903,7 @@ function filtrarDCIBER(el){
   dciberAtivo=true;
   cargoBt='all';
   document.getElementById('sel-aula').value='all';
+  document.getElementById('sel-sem').value='all';
   document.querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   renderAll();
@@ -911,6 +912,7 @@ function filtrarDCIBER(el){
 function filtrarAulaBtn(codigo,el){
   dciberAtivo=false;
   document.getElementById('sel-aula').value=codigo;
+  document.getElementById('sel-sem').value='all';
   document.querySelectorAll('.tag').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   renderAll();
